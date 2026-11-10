@@ -129,28 +129,116 @@
     return a;
   }
 
-  async function playOnly(trackUris) {
-    const [first, ...rest] = trackUris;
-    try {
-      await Spicetify.Platform.PlayerAPI.clearQueue();
-    } catch (e) {
-      console.warn("[Mood Shuffle] clearQueue failed", e);
+  // Replace "Next up" with exactly our shuffled list, then skip into it.
+  // The delimiter at the end makes playback stop after the last song instead of
+  // carrying on with the rest of the playlist.
+  async function setQueueAndPlay(trackUris, contextUri) {
+    const api = Spicetify.Platform.PlayerAPI;
+    const q = api?._queue;
+    if (!q?._client?.setQueue || !q?._queue) throw new Error("queue internals not available");
+    const { prevTracks, queueRevision } = q._queue;
+    const list = [...trackUris, "spotify:delimiter"];
+    const nextTracks = list.map((uri) => ({
+      contextTrack: { uri, uid: "", metadata: { is_queued: "false" } },
+      removed: [],
+      blocked: [],
+      provider: "context",
+    }));
+    await q._client.setQueue({ nextTracks, prevTracks, queueRevision });
+    if (contextUri && api.updateContext && api.getState) {
+      try {
+        const { sessionId } = api.getState();
+        await api.updateContext(sessionId, { uri: contextUri, url: "context://" + contextUri });
+      } catch (_) {}
     }
+    Spicetify.Player.next();
+  }
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Did Spotify actually line up our songs? Look at the upcoming queue.
+  async function queueLooksRight(trackUris) {
+    await sleep(1200);
     try {
-      if (Spicetify.Player.getShuffle()) Spicetify.Player.setShuffle(false);
-    } catch (_) {}
-    await Spicetify.Player.playUri(first);
-    for (let i = 0; i < rest.length; i += 100) {
-      await Spicetify.addToQueue(rest.slice(i, i + 100).map((uri) => ({ uri })));
+      let next = Spicetify.Queue?.nextTracks;
+      if (!next && Spicetify.Platform.PlayerAPI.getQueue) {
+        const q = await Spicetify.Platform.PlayerAPI.getQueue();
+        next = [...(q?.queued || []), ...(q?.nextUp || q?.nextTracks || [])];
+      }
+      const upcoming = (next || []).map((t) => t?.contextTrack?.uri || t?.uri).filter(Boolean);
+      const want = new Set(trackUris.slice(1, 4));
+      return upcoming.slice(0, 6).some((u) => want.has(u));
+    } catch (_) {
+      return true; // can't check, assume it worked
     }
   }
 
-  async function startMood(artist, tracks, playlistName) {
+  // Method 1: Spotify's own "play these exact tracks" request.
+  // Plays only the given songs, in our order, and stops after the last one.
+  async function playViaWebApi(trackUris) {
+    const url = "https://api.spotify.com/v1/me/player/play";
+    const body = { uris: trackUris.slice(0, 700) };
+    try {
+      await Spicetify.CosmosAsync.put(url, body);
+    } catch (e) {
+      await Spicetify.CosmosAsync.post(url, body);
+    }
+  }
+
+  async function playOnly(trackUris, contextUri) {
+    try {
+      if (Spicetify.Player.getShuffle()) Spicetify.Player.setShuffle(false);
+    } catch (_) {}
+
+    if (trackUris.length === 1) {
+      await Spicetify.Player.playUri(trackUris[0]);
+      return;
+    }
+
+    const methods = [
+      ["web-api", () => playViaWebApi(trackUris)],
+      ["set-queue", () => setQueueAndPlay(trackUris, contextUri)],
+      ["add-to-queue", () => playThenQueue(trackUris)],
+    ];
+    for (const [name, run] of methods) {
+      try {
+        await run();
+        if (await queueLooksRight(trackUris)) {
+          console.log(`[Mood Shuffle] queued ${trackUris.length} songs via ${name}`);
+          return;
+        }
+        console.warn(`[Mood Shuffle] ${name} ran but the queue doesn't match, trying next method`);
+      } catch (e) {
+        console.warn(`[Mood Shuffle] ${name} failed`, e);
+      }
+    }
+    Spicetify.showNotification("Mood Shuffle couldn't queue the songs. Check the console.", true);
+  }
+
+  async function playThenQueue(trackUris) {
+    const [first, ...rest] = trackUris;
+    try {
+      await Spicetify.Platform.PlayerAPI.clearQueue();
+    } catch (_) {}
+    await Spicetify.Player.playUri(first);
+    await sleep(500);
+    const items = rest.map((uri) => ({ uri }));
+    for (let i = 0; i < items.length; i += 100) {
+      const chunk = items.slice(i, i + 100);
+      try {
+        await Spicetify.addToQueue(chunk);
+      } catch (e) {
+        await Spicetify.Platform.PlayerAPI.addToQueue(chunk);
+      }
+    }
+  }
+
+  async function startMood(artist, tracks, playlistName, playlistUri) {
     const target = artist.name.toLowerCase();
     const matches = tracks.filter((t) => t.artists.some((a) => a.name?.toLowerCase() === target));
     if (!matches.length) return;
     closeModal();
-    await playOnly(shuffle(matches.map((t) => t.uri)));
+    await playOnly(shuffle(matches.map((t) => t.uri)), playlistUri);
     Spicetify.showNotification(
       `Shuffling ${matches.length} song${matches.length > 1 ? "s" : ""} by ${artist.name} from ${playlistName}`
     );
@@ -424,7 +512,7 @@
           <div class="msx-play">${PLAY_SVG}</div>
           <div class="msx-name">${escapeHtml(a.name)}</div>
           <div class="msx-count">${a.count} song${a.count > 1 ? "s" : ""}</div>`;
-        card.onclick = () => startMood(a, tracks, current.name);
+        card.onclick = () => startMood(a, tracks, current.name, current.uri);
         grid.appendChild(card);
       }
     }
@@ -470,7 +558,7 @@
 
     back.onclick = () => showPlaylists(false);
     surprise.onclick = () => {
-      if (artists.length) startMood(artists[Math.floor(Math.random() * artists.length)], tracks, current.name);
+      if (artists.length) startMood(artists[Math.floor(Math.random() * artists.length)], tracks, current.name, current.uri);
     };
     $(".msx-rescan").onclick = () => (view === "artists" ? openPlaylist(current, true) : showPlaylists(true));
     overlayEl.querySelectorAll("[data-sort]").forEach((b) => {
