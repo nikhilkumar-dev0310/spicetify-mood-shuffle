@@ -1,6 +1,6 @@
 {
   "name": "Mood Shuffle",
-  "description": "Pick a playlist, pick the artist you're in the mood for, and shuffle only that artist's songs from that playlist.",
+  "description": "Pick a playlist and an artist: their songs play first, shuffled, then the rest of the playlist continues in shuffle.",
   "preview": "preview.png",
   "main": "moodShuffle.js",
   "readme": "README.md",
