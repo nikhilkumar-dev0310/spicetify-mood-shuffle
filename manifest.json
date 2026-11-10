@@ -1,0 +1,19 @@
+{
+  "name": "Mood Shuffle",
+  "description": "Pick the artist you're in the mood for and shuffle only their songs from your own playlists and Liked Songs. Nothing from outside your library.",
+  "preview": "preview.png",
+  "main": "moodShuffle.js",
+  "readme": "README.md",
+  "authors": [
+    {
+      "name": "Nikhil Kumar",
+      "url": "https://github.com/nikhilkumar"
+    }
+  ],
+  "tags": [
+    "shuffle",
+    "artist",
+    "playlist",
+    "queue"
+  ]
+}
