@@ -3,14 +3,8 @@
 // DESCRIPTION: Ask which artist you're in the mood for, then shuffle only that artist's songs from your own playlists (and Liked Songs).
 
 (async function moodShuffle() {
-  // Wait until Spicetify is fully loaded
-  while (
-    !Spicetify?.Platform?.RootlistAPI ||
-    !Spicetify?.Platform?.PlaylistAPI ||
-    !Spicetify?.Player ||
-    !Spicetify?.PopupModal ||
-    !Spicetify?.Topbar
-  ) {
+  // Wait only for what the button needs, so it always shows up
+  while (!Spicetify?.Topbar?.Button || !Spicetify?.PopupModal || !Spicetify?.Player) {
     await new Promise((r) => setTimeout(r, 300));
   }
 
@@ -70,7 +64,7 @@
     return out;
   }
 
-  async function scanLibrary(force = false, onProgress = () => {}) {
+  async function scanLibrary(force = false, onProgress = () => { }) {
     if (!force && libraryCache && Date.now() - cacheTime < CACHE_MS) return libraryCache;
 
     const map = new Map();
@@ -141,7 +135,7 @@
     // Turn off Spotify's shuffle so it doesn't reorder our own shuffle
     try {
       if (Spicetify.Player.getShuffle()) Spicetify.Player.setShuffle(false);
-    } catch (_) {}
+    } catch (_) { }
 
     await Spicetify.Player.playUri(first);
 
@@ -342,5 +336,5 @@
   );
 
   // Warm the cache in the background so the first open is fast
-  setTimeout(() => scanLibrary().catch(() => {}), 5000);
+  setTimeout(() => scanLibrary().catch(() => { }), 5000);
 })();
