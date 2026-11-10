@@ -1,6 +1,6 @@
 {
   "name": "Mood Shuffle",
-  "description": "Pick the artist you're in the mood for and shuffle only their songs from your own playlists and Liked Songs. Nothing from outside your library.",
+  "description": "Pick a playlist, pick the artist you're in the mood for, and shuffle only that artist's songs from that playlist.",
   "preview": "preview.png",
   "main": "moodShuffle.js",
   "readme": "README.md",

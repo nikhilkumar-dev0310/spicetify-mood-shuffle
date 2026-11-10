@@ -1,17 +1,17 @@
 # Mood Shuffle
 
-A Spicetify extension that asks **which artist you're in the mood for** and then shuffles only that artist's songs from **your own library**, so no other artists sneak in.
+A Spicetify extension that works inside **one playlist at a time**. Pick a playlist, pick the artist you're in the mood for, and it shuffles only that artist's songs from that playlist, so no other artists sneak in.
 
 ![Mood Shuffle preview](preview.png)
 
-## Features
+## How to use
 
-- A button in the top bar (or **Cmd+Shift+M** / **Ctrl+Shift+M**) opens a picker.
-- Every artist in your library is listed, so you pick one and don't have to type.
-- You can sort by **Most songs** or **A–Z**, and jump to a letter.
-- Songs come only from your playlists (including ones inside folders) and, if you want, your Liked Songs.
-- It clears your queue, shuffles the artist's songs and plays them.
-- Options: *Only playlists I created* and *Include Liked Songs*.
+- **Right-click a playlist** (or Liked Songs) and choose **Mood Shuffle**.
+- Or open a playlist and click the **green round button** in the bottom-right corner (or press **Cmd+Shift+M** / **Ctrl+Shift+M**). It opens on the playlist you're viewing, or the one that's playing.
+- Not on a playlist? You'll get a grid of your playlists to pick from first.
+- Click an artist, or hit **Surprise me** for a random one. Use the back arrow to switch playlists.
+
+The popup resizes itself: a playlist with a few artists gets a small popup, one with lots of artists gets a wide, scrollable grid.
 
 ## Install
 
